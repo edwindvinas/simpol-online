@@ -1,3 +1,4 @@
+//simpol-online
 package play
 
 import (
@@ -47,12 +48,13 @@ func init() {
 }
 
 func serveApiSave(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Infof("serveApiSave()")
 	code := r.FormValue("code")
 	h := sha1.New()
 	fmt.Fprintf(h, "%s", code)
 	hid := fmt.Sprintf("%x", h.Sum(nil))
-	c := appengine.NewContext(r)
-	key := datastore.NewKey(c, "Anko", hid, 0, nil)
+	key := datastore.NewKey(c, "Simpol", hid, 0, nil)
 	_, err := datastore.Put(c, key, &Record{code})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -62,10 +64,16 @@ func serveApiSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveApiPlay(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Infof("serveApiPlay()")
 	code := r.FormValue("code")
+	isDebug := r.FormValue("debug")
+	c.Infof("debug: %v", isDebug)
 	scanner := new(parser.Scanner)
+	c.Infof("serveApiPlay():parser.Scanner")
 	scanner.Init(code)
-	stmts, err := parser.Parse(scanner)
+	stmts, err := parser.Parse(w,r,scanner)
+	c.Infof("serveApiPlay():parser.Parse:stmts: %v", stmts)
 	if e, ok := err.(*parser.Error); ok {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "%d: %s\n", e.Pos.Line, err)
@@ -75,6 +83,7 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	env := vm.NewEnv()
 
+	c.Infof("serveApiPlay():simpol_core.Import")
 	simpol_core.Import(env)
 
 	tbl := map[string]func(env *vm.Env) *vm.Env{
@@ -126,6 +135,7 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 		return
 	})
 	defer env.Destroy()
+	c.Infof("serveApiPlay():vm.Run")
 	_, err = vm.Run(stmts, env)
 	if err != nil {
 		w.WriteHeader(500)
@@ -140,13 +150,15 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 }
 
 func servePermalink(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Infof("servePermalink()")
 	path := r.URL.Path
 	var code string
 	if len(path) > 3 {
 		id := path[3:]
 		c := appengine.NewContext(r)
 		var record Record
-		err := datastore.Get(c, datastore.NewKey(c, "Anko", id, 0, nil), &record)
+		err := datastore.Get(c, datastore.NewKey(c, "Simpol", id, 0, nil), &record)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

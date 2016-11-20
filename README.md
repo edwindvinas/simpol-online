@@ -3,10 +3,7 @@
 Simpol online is an online Golang interpreter for the sample language called Simpol. It was related to github.com/edwindvinas/simpol.
 
 ## Installation
-Requires Google Appengine.
-```
-$ appcfg.py update --oauth2 .  -A simpol-online
-```
+Requires Google Appengine. See https://cloud.google.com/appengine/docs/go/
 
 ## Examples
 

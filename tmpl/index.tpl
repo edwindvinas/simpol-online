@@ -11,6 +11,7 @@
     <div id="controls">
         <input type="button" value="Run" id="run">
         <input type="button" value="Share" id="share">
+		<input type="checkbox" value="Debug" id="debug"> Debug
     </div>
 </div>
 
@@ -44,8 +45,9 @@
             })
         })
         $('#run').click(function() {
+			var isDebug = document.getElementById('debug').checked;
             $.ajax({
-                url: "/api/play",
+                url: "/api/play?debug=" + isDebug,
                 type: "POST",
                 data: {
                     code: $('#code').val(),
