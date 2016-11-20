@@ -39,5 +39,5 @@ PRT $Goodbye!$
 }
 ```
 
-See `_examples/scripts` for the Simpol language specifications.
+To see the Simpol Language Specifications, please see https://github.com/edwindvinas/simpol/blob/master/SIMPOL_SPECS.md
 
