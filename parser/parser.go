@@ -9,6 +9,8 @@ import (
 	"appengine"
 	"net/http"
 	//"fmt"
+        "google.golang.org/appengine"
+        "google.golang.org/appengine/log"
 )
 
 //line parser.go.y:26
@@ -843,6 +845,8 @@ func yyTokname(c int) string {
 			return yyToknames[c-1]
 		}
 	}
+	ctx := appengine.NewContext(r)
+	log.Debug(ctx, "tok-%v", c)
 	return __yyfmt__.Sprintf("tok-%v", c)
 }
 
