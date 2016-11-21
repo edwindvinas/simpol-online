@@ -16,7 +16,7 @@
 </div>
 
 <div style="position: absolute; top: 60px; font-size: 11px; width: 75%">
-   A univesity project to create an interpreter for the <a href="https://github.com/edwindvinas/simpol">Simpol</a> language. This online interpreter allows users to test Simpol language via their browser.
+   A univesity project to create an interpreter for the <a href="https://github.com/edwindvinas/simpol">Simpol</a> language. This online interpreter allows users to test Simpol language online.
 </div>
 
 <div id="wrap">

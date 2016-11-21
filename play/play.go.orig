@@ -74,7 +74,7 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 	scanner.Init(code)
 	stmts, err := Parse(w,r,scanner)
 	c.Infof("serveApiPlay():Parse:stmts: %#v", stmts)
-	//fmt.Fprintf(w, "%#v\n", stmts)
+	fmt.Fprintf(w, "%#v\n", stmts)
 	if e, ok := err.(*Error); ok {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "%d: %s\n", e.Pos.Line, err)
@@ -125,9 +125,6 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 	env.Define("prinf", func(a string, b ...interface{}) {
 		fmt.Fprintf(w, fmt.Sprintf(a, b...))
 	})
-	env.Define("fprinf", func(a string, b ...interface{}) {
-		fmt.Fprintf(w, fmt.Sprintf(a, b...))
-	})
 	env.Define("panic", func(a ...interface{}) {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "Can't use panic()")
@@ -169,19 +166,9 @@ func servePermalink(w http.ResponseWriter, r *http.Request) {
 		}
 		code = record.Code
 	} else {
-/* 		code = `var fmt = import("fmt")
+		code = `var fmt = import("fmt")
 
-println(fmt.Sprintf("こんにちわ世界 %05d", 123))` */
-		code = `variable {
-STG myString
-INT myInt
-BLN myBoolean
-}
-
-code {
-PUT 100 IN myInt
-PRT "hello world!"
-}`
+println(fmt.Sprintf("こんにちわ世界 %05d", 123))`
 	}
 
 	err := t.Execute(w, &struct{ Code string }{Code: code})
