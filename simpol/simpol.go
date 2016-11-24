@@ -74,48 +74,6 @@ func serveApiSave(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", key.StringID())
 }
 
-//List shared codes
-func serveExplore(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	c.Infof("serveExplore()")
-	
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<font face=\"Courier New\" size=\"3\">")
-	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
-	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
-	fmt.Fprintf(w, "// Simpol Interpreter v1                                 <br>")
-	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
-	fmt.Fprintf(w, "// Author: Edwin D. Vinas                                <br>")
-	fmt.Fprintf(w, "// URL: <a href=\"http://simpol-online.appspot.com/\">http://simpol-online.appspot.com/</a>                <br>")
-	fmt.Fprintf(w, "// Git:  <a href=\"https://github.com/edwindvinas/simpol-online\">https://github.com/edwindvinas/simpol-online</a>     <br>")
-	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
-	fmt.Fprintf(w, "***********************  CODE SAMPLES *********************<br>")
-	
-	//Select all shared codes
-	q := datastore.NewQuery("Simpol").KeysOnly()
-	recCount,_ := q.Count(c)
-	if recCount > 0 {
-		keys, err := q.GetAll(c, nil)
-		if err != nil {
-			fmt.Fprintf(w, "Error retrieving samples<br>")
-			return
-		}
-		c := 0
-		
-		for _, key := range keys{
-			c++
-			SPL := strings.Split(fmt.Sprintf("%v", key),",")
-			fmt.Fprintf(w, "<a href=\"/p/%v\">%v</a><br>", fmt.Sprintf("%v", SPL[1]), fmt.Sprintf("%v", SPL[1]))
-		}
-		fmt.Fprintf(w, "<br>%v results found!<br>", c)
-	} else {
-		fmt.Fprintf(w, "0 results found!<br>")
-	}
-	fmt.Fprintf(w, "</font>")
-
-}
-
-
 func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	c.Infof("serveApiPlay()")
@@ -154,6 +112,33 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%v\n", input)
 	}
 	
+	//remove comment lines
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0011] SIMPOL: Scanning initial codes...\n")
+	}
+	_, code_read, err := readInputCodes(w,r,isDebug,code)
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0001]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0002] Scanned input codes:\n")
+		fmt.Fprintf(w, "[S0003]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "%v\n", code_read)
+	}
+	
+	//remove comment lines
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0011] SIMPOL: Cleaning comments from code...\n")
+	}
+	ccode, err := cleanInputCodes(w,r,isDebug,code)
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0001]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0002] Cleaned input codes:\n")
+		fmt.Fprintf(w, "[S0003]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "%v\n", ccode)
+	}
+	if err != nil {
+	fmt.Fprintf(w, "[S0011] SIMPOL: %v\n", err)
+	}
+	
 	//store each input to variables table
 	SPL := strings.Split(input, "|")
 	c.Infof("input: %v", input)
@@ -185,7 +170,7 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "[S0032] Starting parser process:\n")
 		fmt.Fprintf(w, "[S0033]----------------------------------------------------------\n")
 	}
-	vbr, cbr, err := NewParser(w,r,isDebug,strings.NewReader(code)).Parse()
+	vbr, cbr, err := NewParser(w,r,isDebug,strings.NewReader(ccode)).Parse()
 	if err != nil {
 		fmt.Fprintf(w, "[S0034]----------------------------------------------------------\n")
 		fmt.Fprintf(w, "[S0035] ERROR: %v\n", err)
@@ -213,6 +198,47 @@ func serveApiPlay(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "///////////////////////////////////////////////////////////\n")
 	memcache.Flush(c)
 	
+}
+
+//List shared codes
+func serveExplore(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Infof("serveExplore()")
+	
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, "<font face=\"Courier New\" size=\"3\">")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
+	fmt.Fprintf(w, "// Simpol Interpreter v1                                 <br>")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
+	fmt.Fprintf(w, "// Author: Edwin D. Vinas                                <br>")
+	fmt.Fprintf(w, "// URL: <a href=\"http://simpol-online.appspot.com/\">http://simpol-online.appspot.com/</a>                <br>")
+	fmt.Fprintf(w, "// Git:  <a href=\"https://github.com/edwindvinas/simpol-online\">https://github.com/edwindvinas/simpol-online</a>     <br>")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////<br>")
+	fmt.Fprintf(w, "***********************  CODE SAMPLES *********************<br>")
+	
+	//Select all shared codes
+	q := datastore.NewQuery("Simpol").KeysOnly()
+	recCount,_ := q.Count(c)
+	if recCount > 0 {
+		keys, err := q.GetAll(c, nil)
+		if err != nil {
+			fmt.Fprintf(w, "Error retrieving samples<br>")
+			return
+		}
+		c := 0
+		
+		for _, key := range keys{
+			c++
+			SPL := strings.Split(fmt.Sprintf("%v", key),",")
+			fmt.Fprintf(w, "[%v] <a href=\"/p/%v\">%v</a><br>", c, fmt.Sprintf("%v", SPL[1]), fmt.Sprintf("%v", SPL[1]))
+		}
+		fmt.Fprintf(w, "<br>%v results found!<br>", c)
+	} else {
+		fmt.Fprintf(w, "0 results found!<br>")
+	}
+	fmt.Fprintf(w, "</font>")
+
 }
 
 //Serve permanent link
@@ -298,6 +324,35 @@ code {
 		return
 	}
 }
+					
+// Function cleanInputCodes() reads the input codes given by user
+func cleanInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, code string) (res string, err error) {
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0091]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0092] Running function cleanInputCodes()........\n")
+	fmt.Fprintf(w, "[S0093]----------------------------------------------------------\n")
+	}
+
+	//find user to host mapping		
+	var buf bytes.Buffer	
+	temp := strings.Split(code,"\n")
+	if len(temp) > 0 {
+		for j := 0; j < len(temp); j++ {
+			//remove comments
+			a := strings.Index(temp[j], "/*")
+			b := strings.Index(temp[j], "*/")
+			if a != -1 && b != -1 {
+				//donothing
+			} else {
+				buf.WriteString(fmt.Sprintf("%v\n", temp[j]))
+			}
+		}
+	} else {
+		return buf.String(), fmt.Errorf("ERROR: No codes processed!")
+	}
+	
+	return buf.String(), nil
+}
 
 // Function readInputCodes() reads the input codes given by user
 func readInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, code string) (LXR []*LexerTable, res string, err error) {
@@ -316,7 +371,7 @@ func readInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, code
 	for tok != scanner.EOF {
 		tok = s.Scan()
 		if isDebug == "true" {
-			fmt.Fprintf(w, "[S0094] LINE %v: %v\n", s.Pos(), s.TokenText())
+			//fmt.Fprintf(w, "[S0094] LINE %v: %v\n", s.Pos(), s.TokenText())
 			buf.WriteString(fmt.Sprintf("LINE %v: %v\n", s.Pos(), s.TokenText()))
 		}
 		//store in lexer table

@@ -96,35 +96,6 @@ func (s *Scanner) Scan() (tok Token, lit string) {
 		if s.isDebug == "true" {
 		fmt.Fprintf(s.hw, "[X0013] SCANNER: SLASH_SYMBOL: %v\n", string(ch))
 		}
-		//peek next symbol is *
-		IS_COMMENTS_OPEN = false
-		ch := s.read()
-		if string(ch) == "*" {
-			if s.isDebug == "true" {
-			fmt.Fprintf(s.hw, "[X0014] SCANNER: IS_COMMENTS_OPEN = true\n")
-			fmt.Fprintf(s.hw, "[X0015] SCANNER: IGNORING COMMENTS up to */\n")
-			}
-			IS_COMMENTS_OPEN = true
-			for {
-				ch = s.read()
-				if string(ch) == "*" {
-					ch = s.read()
-					if string(ch) == "/" {
-						if s.isDebug == "true" {
-						fmt.Fprintf(s.hw, "[X0016] SCANNER: found closing comment! 1\n")
-						fmt.Fprintf(s.hw, "[X0017] SCANNER: IS_COMMENTS_OPEN = false\n")
-						}
-						IS_COMMENTS_OPEN = false
-						s.scanWhitespace()
-						return SLASH_SYMBOL, string(ch)
-						break
-					}
-				}
-				
-			}
-		} else {
-			s.unread()
-		}
 		return SLASH_SYMBOL, string(ch)
 	}
 
@@ -145,36 +116,12 @@ func (s *Scanner) scanWhitespace() (tok Token, lit string) {
 	for {
 		if ch := s.read(); ch == eof {
 			break
-		} else if !isWhitespace(ch) && IS_COMMENTS_OPEN != true {
+		} else if !isWhitespace(ch) {
 			if s.isDebug == "true" {
 			fmt.Fprintf(s.hw, "[X0019] SCANNER: !isWhitespace: %v\n", string(ch))
 			}
 			s.unread()
 			break
-		} else if string(ch) == "/" {
-			if string(s.read()) == "*" {
-				IS_COMMENTS_OPEN = false 
-				if s.isDebug == "true" {
-				fmt.Fprintf(s.hw, "[X0020] SCANNER: found opening comment! %v\n", string(ch))
-				}
-				for {
-					ch = s.read()
-					if string(ch) == "*" {
-						ch = s.read()
-						if string(ch) == "/" {
-							if s.isDebug == "true" {
-							fmt.Fprintf(s.hw, "[X0021] SCANNER: found closing comment! 2 %v\n", string(ch))
-							}
-							IS_COMMENTS_OPEN = false
-							break
-						}
-					}
-					s.read()
-				}
-				
-			} else {
-				s.unread()
-			}		
 		} else {
 			buf.WriteRune(ch)
 			if s.isDebug == "true" {
@@ -185,55 +132,6 @@ func (s *Scanner) scanWhitespace() (tok Token, lit string) {
 	}
 
 	return WS, buf.String()
-}
-
-// scanComments scans line comments /* comments here */
-func (s *Scanner) scanComments() {
-	// Create a buffer and read the current character into it.
-	if s.isDebug == "true" {
-	fmt.Fprintf(s.hw, "[X0023] SCANNER: s.scanComments()\n")
-	}
-	var buf bytes.Buffer
-	buf.WriteRune(s.read())
-	
-	// Read every subsequent comments character into the buffer.
-	// Close comments */ and EOF will cause the loop to exit.
-	for {
-		if ch := s.read(); ch == eof {
-			break
-		} else if string(s.read()) == "*" {
-			//check if closing comment
-			ch := s.read()
-			if string(ch) == "/" {
-				if s.isDebug == "true" {
-					fmt.Fprintf(s.hw, "[X0024] SCANNER: closed comment: %v\n", string(ch))
-					IS_COMMENTS_OPEN = false
-					_,lit := s.scanWhitespace()
-					if lit == "/" && string(s.read()) == "*" {
-						//continue ignoring
-						fmt.Fprintf(s.hw, "[X0025] SCANNER: more comments: %v\n", string(ch))
-						IS_COMMENTS_OPEN = true
-					} else {
-						s.unread()
-						s.unread()
-						break
-					}
-					
-				}
-			} else {
-				s.unread()
-			}
-
-		} else {
-			IS_COMMENTS_OPEN = true
-			buf.WriteRune(ch)
-			if s.isDebug == "true" {
-				fmt.Fprintf(s.hw, "[X0026] SCANNER: WriteRune: %v\n", string(ch))
-			}
-		}
-	}
-
-	return
 }
 
 // scanIdent consumes the current rune and all contiguous ident runes.

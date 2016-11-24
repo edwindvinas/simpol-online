@@ -43,41 +43,24 @@ func (p *Parser) Parse() (vbr []*VariableBlockTable, cbr []*CodeBlockTable, err 
 	fmt.Fprintf(p.hw, "[P0002] PARSER: Parse()\n")
 	}
 
-	//Remove any comments
-	if tok, lit := p.scanIgnoreComments(); lit != "/" {
-		if p.isDebug == "true" {
-		fmt.Fprintf(p.hw, "[P0003] PARSER: ERROR: found lit: %v tok: %v, expected / \n", lit, tok)
-		}
-		//repeat
-		if tok, lit := p.scanIgnoreComments(); lit != "/" {
-			if p.isDebug == "true" {
-			fmt.Fprintf(p.hw, "[P0004] PARSER: ERROR: found lit: %v tok: %v, expected / \n", lit, tok)
-			}
-			return nil, nil, fmt.Errorf("found %q, expected /", lit)
-		}
-	}
-	
-	// First token should be a "VARIABLE" keyword.
+	//get the first token expected "variable"
 	if tok, lit := p.scanIgnoreWhitespace(); tok != VARIABLE {
 		if p.isDebug == "true" {
 		fmt.Fprintf(p.hw, "[P0005] PARSER: ERROR: found lit: %v tok: %v, expected VARIABLE declaration\n", lit, tok)
 		}
-		if tok, lit := p.scanIgnoreWhitespace(); tok != VARIABLE {
-			fmt.Fprintf(p.hw, "[P0006] PARSER: ERROR: found lit: %v tok: %v, expected VARIABLE declaration\n", lit, tok)
-			return nil, nil, fmt.Errorf("found %q, expected VARIABLE declaration", lit)
-		}
+		return nil, nil, fmt.Errorf("found %q, expected VARIABLE declaration", lit)
 	}
-	
+
 	// Next we should expect a "{"
 	if tok, lit := p.scanIgnoreWhitespace(); tok != OPEN_CURLY_BRACKET {
 		fmt.Fprintf(p.hw, "[P0009] PARSER: ERROR: found lit: %v tok: %v, expected OPEN_CURLY_BRACKET \n", lit, tok)
 		return nil, nil, fmt.Errorf("found %q, expected OPEN_CURLY_BRACKET", lit)
 	} else {
 		if p.isDebug == "true" {
-		fmt.Fprintf(p.hw, "[P0010] !!!!!!!!! START VARIABLE BLOCK SECTION !!!!!!!!!!!\n")
+		fmt.Fprintf(p.hw, "[P0015] PARSER: !!!!!!!!! OPENED VARIABLE SECTION !!!!!!!!!\n")
 		}
-		FL_OPEN_CURLY_BRACKET = true
 	}
+	
 	
 	// Next we should loop over all our variables in the VB block
 	for {
@@ -1100,15 +1083,6 @@ func (p *Parser) scanIgnoreWhitespace() (tok Token, lit string) {
 	if tok == WS {
 		tok, lit = p.scan()
 	}
-	return
-}
-
-
-func (p *Parser) scanIgnoreComments() (tok Token, lit string) {
-	if p.isDebug == "true" {
-	fmt.Fprintf(p.hw, "[P0168] PARSER: p.scanIgnoreComments()\n")
-	}
-	tok, lit = p.scan()
 	return
 }
 

@@ -11,7 +11,6 @@ var FL_CLOSE_CURLY_BRACKET bool
 var FL_SAW_VARIABLE_DECL bool
 var THIS_CURR_VAR_IDENT string
 var THIS_CURR_VAR_CTR int
-var IS_COMMENTS_OPEN bool
 
 //code block parsing flags
 var FL_SAW_CODE_DECL bool
