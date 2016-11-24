@@ -5,7 +5,8 @@ Simpol is a Golang interpreter for the sample language called Simpol.
 This online interpreter allows users to test Simpol language online. It uses Google Appengine, Golang, and hand-written scanning and parsing logic. Please note that this is not the ideal solution for interpreters which usually use tools such as EBNF, Lex, Yacc, etc in order to create a robust interpreter software. But using these tools are complex to implement in a university project.
 
 ## Demo
-http://simpol-online.appspot.com/p/c300ab584e031bcbed62eaec49b0f19f36523df6
+Main Site http://simpol-online.appspot.com
+A Sample Shared Code http://simpol-online.appspot.com/p/c300ab584e031bcbed62eaec49b0f19f36523df6
 
 ## Installation
 Requires Go.
