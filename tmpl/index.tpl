@@ -18,7 +18,7 @@
 </div>
 
 <div style="position: absolute; top: 60px; font-size: 11px; width: 75%">
-   A univesity project to create an interpreter for the <a href="https://github.com/edwindvinas/simpol">Simpol</a> language. This online interpreter allows users to test Simpol language online. It uses Google Appengine, Golang, and hand-written scanning and parsing logic. Please note that this is not the ideal solution for interpreters which usually use tools such as EBNF, Lex, Yacc, etc in order to create a robust interpreter software. But using these tools are complex to implement in a university project.
+   A univesity project to create an interpreter for the <a href="https://github.com/edwindvinas/simpol/blob/master/SIMPOL_SPECS.md">Simpol</a> language. This online interpreter allows users to test Simpol language online. It uses Google Appengine, Golang, and hand-written scanning and parsing logic. Please note that this is not the ideal solution for interpreters which usually use tools such as EBNF, Lex, Yacc, etc in order to create a robust interpreter software. But using these tools are complex to implement in a university project.
 </div>
 
 <div id="wrap">
@@ -93,6 +93,16 @@
         })
     })
 -->
+</script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-87908378-1', 'auto');
+  ga('send', 'pageview');
+
 </script>
 </body>
 </html>

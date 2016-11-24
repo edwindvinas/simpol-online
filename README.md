@@ -1,11 +1,31 @@
-# Simpol Interpreter
+# Simpol
 
-Simpol Interpreter is an online Golang interpreter for the sample language called Simpol. It was related to github.com/edwindvinas/simpol.
+Simpol is a Golang interpreter for the sample language called Simpol. It was patterned from github.com/edwindvinas/simpol.
 
 This online interpreter allows users to test Simpol language online. It uses Google Appengine, Golang, and hand-written scanning and parsing logic. Please note that this is not the ideal solution for interpreters which usually use tools such as EBNF, Lex, Yacc, etc in order to create a robust interpreter software. But using these tools are complex to implement in a university project.
 
+## Demo
+http://simpol-online.appspot.com/p/c300ab584e031bcbed62eaec49b0f19f36523df6
+
 ## Installation
-Requires Google Appengine. See https://cloud.google.com/appengine/docs/go/
+Requires Go.
+```
+$ git clone https://github.com/edwindvinas/simpol-online.git
+$ //Create an Appengine project ID
+$ //Update the app.yaml to indicate your project id
+$ ./updategae.sh
+```
+
+## Tools
+```
+$ //Update the debug message markers
+$ ./formatcodes.sh
+$ //Update appengine project
+$ ./updategae.sh
+$ //Update github
+$ ./updategithub.sh
+```
+
 
 ## Examples
 
@@ -19,7 +39,7 @@ INT num3
 BLN bol1
 BLN bol2
 }
- 
+
 code {
 PUT $The result is: $ IN str
 ASK name
@@ -27,7 +47,7 @@ PUT true IN bol1
 PUT false IN bol2
 PUT ADD 1 2 IN num1
 PUT 100 IN num2
- 
+
 PRT $Your name is $
 PRT name
 PRT OHR true AND bol1 bol2
@@ -126,5 +146,9 @@ Goodbye!
 ///////////////////////////////////////////////////////////
 ```
 
-To see the Simpol Language Specifications, please see https://github.com/edwindvinas/simpol/blob/master/SIMPOL_SPECS.md
+To try this online, see http://simpol-online.appspot.com/
+See the explore section to see sample codes and execute them
+
+To see the Simpol Language Specifications, please see
+https://github.com/edwindvinas/simpol/blob/master/SIMPOL_SPECS.md
 
