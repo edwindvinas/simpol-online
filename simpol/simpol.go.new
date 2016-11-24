@@ -1,0 +1,460 @@
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// SIMPOL INTERPRETER
+// A university project to create an interpreter for a sample SIMPOL language.
+// COPYRIGHT (c) 2016 Edwin D. Vinas
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//REV ID: 		D0001
+//REV DATE: 	2016-Nov-20
+//REV DESC:		Created initial interpreter using Golang
+//REV AUTH:		Edwin D. Vinas
+/////////////////////////////////////////////////////////////////////////////////////////////////
+package simpol
+
+import (
+	"appengine"
+	"appengine/datastore"
+	"appengine/memcache"
+	"crypto/sha1"
+	"fmt"
+	"html/template"
+	"net/http"
+	"strings"
+	"text/scanner"
+	"bytes"
+
+)
+
+type Record struct {
+	Code string
+}
+
+var t = template.Must(template.ParseFiles("tmpl/index.tpl"))
+
+func init() {
+	http.HandleFunc("/api/play", serveApiPlay)
+	http.HandleFunc("/api/save", serveApiSave)
+	http.HandleFunc("/p/", servePermalink)
+	http.HandleFunc("/", servePermalink)
+}
+
+func initializeSimpol() {
+	FL_CURR_VARS_SECTION = false
+	FL_CURR_CODE_SECTION = false
+	FL_OPEN_CURLY_BRACKET = false
+	FL_CLOSE_CURLY_BRACKET = false
+	FL_SAW_VARIABLE_DECL = false
+	THIS_CURR_VAR_IDENT = ""
+	THIS_CURR_VAR_CTR = 0	
+}
+
+func serveApiSave(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Infof("serveApiSave()")
+	code := r.FormValue("code")
+	h := sha1.New()
+	fmt.Fprintf(h, "%s", code)
+	hid := fmt.Sprintf("%x", h.Sum(nil))
+	key := datastore.NewKey(c, "Simpol", hid, 0, nil)
+	_, err := datastore.Put(c, key, &Record{code})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, "%s", key.StringID())
+}
+
+func serveApiPlay(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Infof("serveApiPlay()")
+	
+	code := r.FormValue("code")
+	input := fmt.Sprintf("%v", r.FormValue("input"))
+	isDebug := r.FormValue("debug")
+	c.Infof("debug: %v", isDebug)
+	
+	initializeSimpol();
+	
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////\n")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////\n")
+	fmt.Fprintf(w, "// Simpol Interpreter v1                                 //\n")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////\n")
+	fmt.Fprintf(w, "// Author: Edwin D. Vinas                                //\n")
+	fmt.Fprintf(w, "// URL: http://simpol-online.appspot.com/                //\n")
+	fmt.Fprintf(w, "// Git: https://github.com/edwindvinas/simpol-online     //\n")
+	if isDebug == "true" {
+		//catch all debug info
+		fmt.Fprintf(w, "// Debug: ON                                             //\n")
+	} else {
+		fmt.Fprintf(w, "// Debug: OFF                                            //\n")
+	}
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////\n")
+	fmt.Fprintf(w, "*********************** START RESULTS *********************\n")
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0001]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0002] Your input is:\n")
+		fmt.Fprintf(w, "[S0003]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "%v\n", code)
+		fmt.Fprintf(w, "[S0004]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0005] Your parameters:\n")
+		fmt.Fprintf(w, "[S0006]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "%v\n", input)
+	}
+	
+	//store each input to variables table
+	SPL := strings.Split(input, "|")
+	c.Infof("input: %v", input)
+	c.Infof("SPL: %v", SPL)
+	for i := 1; i < len(SPL) && len(SPL) > 0; i++ {
+		//this is a valid variable indentifier
+		c.Infof("SPL[%v]: %v", i, SPL[i])
+		
+		if isDebug == "true" {
+		fmt.Fprintf(w, "[S0007] SIMPOL: stored ask parameter: %v\n", SPL[i])
+		}
+		SPM := strings.Split(SPL[i], "=")
+		THIS_CURR_VAR_CTR++
+		v := new(VariableBlockTable)
+		v.VarRefNum = THIS_CURR_VAR_CTR
+		v.VarKeyword = THIS_CURR_VAR_IDENT
+		v.VarName = SPM[0]
+		//v.VarValue = SPM[1]
+		v.VarValue = randSeq(16)
+		//keyID
+		cKey := fmt.Sprintf("%v", v.VarValue)
+		putBytesToMemcacheWithExp(w,r,isDebug,cKey,[]byte(SPM[1]),3600)
+		//variable name store map to key
+		cKey2 := fmt.Sprintf("%v", v.VarName)
+		putBytesToMemcacheWithExp(w,r,isDebug,cKey2,[]byte(cKey),3600)		
+	}
+	
+	// - Stage 1: Reading the input character by character
+/* 	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0008]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0009] Generating input stream:\n")
+		fmt.Fprintf(w, "[S0010]----------------------------------------------------------\n")
+	}
+	lxr, inps, err := readInputCodes(w,r,isDebug,code)
+	if err != nil {
+		fmt.Fprintf(w, "[S0011]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0012] Error of readInputCodes():\n")
+		fmt.Fprintf(w, "[S0013] %v\n", err)
+		fmt.Fprintf(w, "[S0014]----------------------------------------------------------\n")
+		return
+	}
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0015]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0016] Result of readInputCodes():\n")
+		fmt.Fprintf(w, "[S0017] BUF: %v\n", inps)
+		fmt.Fprintf(w, "[S0018] LXR: %v\n", lxr)
+		fmt.Fprintf(w, "[S0019]----------------------------------------------------------\n")
+		
+		//display read codes
+		fmt.Fprintf(w, "[S0020]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0021] INPUT CODES TABLE\n")
+		fmt.Fprintf(w, "[S0022]----------------------------------------------------------\n")
+		for i, v := range lxr {
+			//fmt.Fprintf(w, "LXR[%v]: ROW: %+v\n", i, v)
+			//fmt.Fprintf(w, "LXR[%v]: ROW: %v\n", i, v)
+			p := new(LexerTable)
+			p = v
+			fmt.Fprintf(w, "ROW: %v LINE: %v VALUE: %v\n", i, p.LinePosition, p.LexerLexeme)
+			
+		}
+		
+	} */
+	
+	// - Output: Save stage 1 output to memcache1
+/* 	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0023]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0024] Saving input stream:\n")
+	fmt.Fprintf(w, "[S0025]----------------------------------------------------------\n")
+	}
+	stream, err := saveInputCodes(w,r,isDebug,inps)
+	if err != nil {
+		fmt.Fprintf(w, "[S0026]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0027] Error of saveInputCodes():\n")
+		fmt.Fprintf(w, "[S0028] %v\n", err)
+		fmt.Fprintf(w, "[S0029]----------------------------------------------------------\n")
+		return
+	}
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0030]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "Result of saveInputCodes():\n")
+		fmt.Fprintf(w, "%v\n", stream)
+		fmt.Fprintf(w, "[S0031]----------------------------------------------------------\n")
+	} */
+
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0032]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0033] Starting parser process:\n")
+		fmt.Fprintf(w, "[S0034]----------------------------------------------------------\n")
+	}
+	vbr, cbr, err := NewParser(w,r,isDebug,strings.NewReader(code)).Parse()
+	if err != nil {
+		//if isDebug == "true" {
+			fmt.Fprintf(w, "[S0035]----------------------------------------------------------\n")
+			fmt.Fprintf(w, "[S0036] ERROR: %v\n", err)
+			fmt.Fprintf(w, "[S0037]----------------------------------------------------------\n")
+			return
+		//}
+	}
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0038]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0039] VBR: %v\n", vbr)
+		fmt.Fprintf(w, "[S0040] CBR: %v\n", cbr)
+		fmt.Fprintf(w, "[S0041]----------------------------------------------------------\n")
+		//display vbr table
+		fmt.Fprintf(w, "[S0042]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0043] VARIABLES TABLE\n")
+		fmt.Fprintf(w, "[S0044]----------------------------------------------------------\n")
+		for i, v := range vbr {
+			fmt.Fprintf(w, "VBR[%v]: ROW: %v\n", i, v)
+		}
+		//display cbr table
+/* 		fmt.Fprintf(w, "[S0045]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0046] CODES TABLE\n")
+		fmt.Fprintf(w, "[S0047]----------------------------------------------------------\n")
+		for i, v := range cbr {
+			fmt.Fprintf(w, "CBR[%v]: ROW: %v\n", i, v)
+			//for each CBR, display operations table
+		} */
+	}
+	
+/* 	// - Stage 2: Parse the stream of token/characters (may use state transition diagrams)
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0048]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0049] Parsing input stream:\n")
+	fmt.Fprintf(w, "[S0050]----------------------------------------------------------\n")
+	}
+	parses, err := parseInputCodes(w,r,isDebug,stream)
+	if err != nil {
+		fmt.Fprintf(w, "[S0051]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0052] Error of parseInputCodes():\n")
+		fmt.Fprintf(w, "[S0053] %v\n", err)
+		fmt.Fprintf(w, "[S0054]----------------------------------------------------------\n")
+		return
+	}
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0055]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0056] Result of parseInputCodes():\n")
+		fmt.Fprintf(w, "[S0057] %v\n", parses)
+		fmt.Fprintf(w, "[S0058]----------------------------------------------------------\n")
+	}	
+	// - Output 2: Save the stage 2 output to memcache 1
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0059]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0060] Save parsed input stream:\n")
+	fmt.Fprintf(w, "[S0061]----------------------------------------------------------\n")
+	}
+	saves2, err := saveParsedInputCodes(w,r,isDebug,stream)
+	if err != nil {
+		fmt.Fprintf(w, "[S0062]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0063] Error of saveParsedInputCodes():\n")
+		fmt.Fprintf(w, "[S0064] %v\n", err)
+		fmt.Fprintf(w, "[S0065]----------------------------------------------------------\n")
+		return
+	}
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0066]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0067] Result of saveParsedInputCodes():\n")
+		fmt.Fprintf(w, "[S0068] %v\n", saves2)
+		fmt.Fprintf(w, "[S0069]----------------------------------------------------------\n")
+	}
+	
+	// - Stage 3: Interpreting the values
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0070]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0071] Interpreting the logic:\n")
+	fmt.Fprintf(w, "[S0072]----------------------------------------------------------\n")
+	}
+	ints, err := interpretParsedInputCodes(w,r,isDebug,stream)
+	if err != nil {
+		fmt.Fprintf(w, "[S0073]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0074] Error of interpretParsedInputCodes():\n")
+		fmt.Fprintf(w, "[S0075] %v\n", err)
+		fmt.Fprintf(w, "[S0076]----------------------------------------------------------\n")
+		return
+	}
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0077]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0078] Result of interpretParsedInputCodes():\n")
+		fmt.Fprintf(w, "[S0079] %v\n", ints)
+		fmt.Fprintf(w, "[S0080]----------------------------------------------------------\n")
+	}
+	
+	// - Output 3: Show the interpreted results
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0081]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0082] Displaying the interpreted results:\n")
+	fmt.Fprintf(w, "[S0083]----------------------------------------------------------\n")
+	}
+	dres, err := displayInterpretParsedInputCodes(w,r,isDebug,ints)
+	if err != nil {
+		fmt.Fprintf(w, "[S0084]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0085] Error of displayInterpretParsedInputCodes():\n")
+		fmt.Fprintf(w, "[S0086] %v\n", err)
+		fmt.Fprintf(w, "[S0087]----------------------------------------------------------\n")
+		return
+	}
+	if isDebug == "true" {
+		fmt.Fprintf(w, "[S0088]----------------------------------------------------------\n")
+		fmt.Fprintf(w, "[S0089] Result of displayInterpretParsedInputCodes():\n")
+		fmt.Fprintf(w, "[S0090] %v\n", dres)
+		fmt.Fprintf(w, "[S0091]----------------------------------------------------------\n")
+	} */
+	fmt.Fprintf(w, "*********************** END OF RESULTS ********************\n")
+
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////\n")
+	fmt.Fprintf(w, "// THANK YOU FOR USING SIMPOL!                           //\n")
+	fmt.Fprintf(w, "///////////////////////////////////////////////////////////\n")
+	memcache.Flush(c)
+	
+}
+
+func servePermalink(w http.ResponseWriter, r *http.Request) {
+	c := appengine.NewContext(r)
+	c.Infof("servePermalink()")
+	path := r.URL.Path
+	var code string
+	if len(path) > 3 {
+		id := path[3:]
+		c := appengine.NewContext(r)
+		var record Record
+		err := datastore.Get(c, datastore.NewKey(c, "Simpol", id, 0, nil), &record)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		code = record.Code
+	} else {
+		code = `/* My Sample Simpol Program */
+
+/* Variables Section */
+variable {
+STG myString
+INT myInt
+BLN myBoolean
+}
+
+/* Codes Section */
+code {
+PUT $hello world!$ IN myString
+PUT 100 IN myInt
+PUT true in myBoolean
+PRT myString
+PRT myInt
+PRT myBoolean
+ASK name
+PRT name
+}`
+	}
+
+	err := t.Execute(w, &struct{ Code string }{Code: code})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+////////////////////////////////////////
+//Simpol handlers/functions
+////////////////////////////////////////
+
+// Function readInputCodes() reads the input codes given by user
+func readInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, code string) (LXR []*LexerTable, res string, err error) {
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0092]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0093] Running function readInputCodes()........\n")
+	fmt.Fprintf(w, "[S0094]----------------------------------------------------------\n")
+	}
+
+	//var LXR []*LexerTable
+	p := new(LexerTable)
+
+ 	var s scanner.Scanner
+	s.Init(strings.NewReader(code))
+	var tok rune
+	var buf bytes.Buffer
+	for tok != scanner.EOF {
+		tok = s.Scan()
+		if isDebug == "true" {
+			fmt.Fprintf(w, "[S0095] LINE %v: %v\n", s.Pos(), s.TokenText())
+			buf.WriteString(fmt.Sprintf("LINE %v: %v\n", s.Pos(), s.TokenText()))
+		}
+		//store in lexer table
+		p.LinePosition = fmt.Sprintf("%v", s.Pos())
+		p.LexerLexeme = fmt.Sprintf("%v", s.TokenText())
+		//fmt.Fprintf(w, "[S0096] LXR: %v\n", p)
+		LXR = append(LXR, p)
+	}
+	
+	return LXR, buf.String(), nil
+}
+
+//Function saveInputCodes() saves the input stream for next processing
+func saveInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, codeSplit string) (res string, err error) {
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0097]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0098] Running function saveInputCodes()........\n")
+	fmt.Fprintf(w, "[S0099]----------------------------------------------------------\n")
+	}
+	
+	return "", nil
+}
+
+//Function parseInputCodes() parses the input codes
+func parseInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, stream string) (res string, err error) {
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0100]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0101] Running function parseInputCodes()........\n")
+	fmt.Fprintf(w, "[S0102]----------------------------------------------------------\n")
+	}
+	
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0103]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0104] Display tokens & lexemes........\n")
+	fmt.Fprintf(w, "[S0105]----------------------------------------------------------\n")
+	}
+	
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0106]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0107] Display symbols table........\n")
+	fmt.Fprintf(w, "[S0108]----------------------------------------------------------\n")
+	}
+	
+	return "", nil
+}
+
+//Function saveParsedInputCodes() saves the parsed input codes
+func saveParsedInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, pstream string) (res string, err error) {
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0109]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0110] Running function saveParsedInputCodes()........\n")
+	fmt.Fprintf(w, "[S0111]----------------------------------------------------------\n")
+	}
+	
+	return "", nil
+}
+
+//Function interpretParsedInputCodes() interprets the input codes
+func interpretParsedInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, instream string) (res string, err error) {
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0112]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0113] Running function interpretParsedInputCodes()........\n")
+	fmt.Fprintf(w, "[S0114]----------------------------------------------------------\n")
+	}
+	
+	return "", nil
+}
+
+//Function displayInterpretParsedInputCodes() displays the final result
+func displayInterpretParsedInputCodes(w http.ResponseWriter, r *http.Request, isDebug string, dstream string) (res string, err error) {
+	if isDebug == "true" {
+	fmt.Fprintf(w, "[S0115]----------------------------------------------------------\n")
+	fmt.Fprintf(w, "[S0116] Running function displayInterpretParsedInputCodes()........\n")
+	fmt.Fprintf(w, "[S0117]----------------------------------------------------------\n")
+	}
+	
+	return "", nil
+}
